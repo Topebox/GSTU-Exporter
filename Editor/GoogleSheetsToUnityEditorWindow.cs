@@ -35,6 +35,7 @@ namespace GoogleSheetsToUnity.Editor
 
         private bool isBuilding;
         private static string _output;
+        private bool showTextTemplate;
         private const string StarCheckKey = "<key=";
         private const string EndCheckKey = "/>";
 
@@ -137,7 +138,6 @@ namespace GoogleSheetsToUnity.Editor
                     //create export scripts folder
                     AssetDatabase.CreateFolder(_folderPath, "Scripts");
 
-
                     _sheetSetting = CreateInstance<SheetSetting>();
                     _sheetSetting.GoogleSheets = new List<SheetConfig> {
                         new SheetConfig()
@@ -150,7 +150,7 @@ namespace GoogleSheetsToUnity.Editor
 
                 AssetDatabase.SaveAssets();
             }
-            else
+            else if(!showTextTemplate)
             {
                 scrollPosition = GUILayout.BeginScrollView(scrollPosition);
                 GUILayout.Label("");
@@ -200,6 +200,15 @@ namespace GoogleSheetsToUnity.Editor
 
                 GUILayout.Label("", GUILayout.Height(60));
             }
+            else if (showTextTemplate)
+            {
+                scrollPosition = GUILayout.BeginScrollView(scrollPosition);
+                GUILayout.Label("");
+                GUILayout.Label("Build Text Template", EditorStyles.boldLabel);
+                _sheetSetting.textTemplate = GUILayout.TextArea(_sheetSetting.textTemplate);
+
+                GUILayout.EndScrollView();
+            }
         }
 
         private void BuildConnection()
@@ -227,6 +236,12 @@ namespace GoogleSheetsToUnity.Editor
             {
                 GoogleAuthrisationHelper.BuildHttpListener();
             }
+
+            GUI.backgroundColor = Color.green;
+            var style = new GUIStyle(GUI.skin.toggle);
+            style.fontStyle = FontStyle.Bold;
+            style.fontSize = 15;
+            showTextTemplate = GUILayout.Toggle(showTextTemplate, "Build Text Template");
 
             GUI.backgroundColor = Color.white;
 
@@ -630,83 +645,6 @@ namespace GoogleSheetsToUnity.Editor
             classContent = classContent.Replace("<ListLanguage>", listLanguage);
             File.WriteAllText(classPath, classContent);
             complete?.Invoke();
-
-            /*var sheetName = sheet.sheetName;
-            int count = 0;
-
-            //Export Json file
-            var stringValues = new List<string>();
-            int countkey = 0;
-            foreach (var key in sheet.columns.secondaryKeyLink.Keys)
-            {
-                if (!key.Equals("key") && !key.Contains("[") && !key.Contains("]"))
-                {
-                    var jsonPath = $"{Application.dataPath}/{exportFolder}/Resources/LocalizedText/[{key}]{sheetName}.json";
-                    var jsonString = "{\n" + "\t\"" + key + "\": [\n";
-
-                    var ListValue = sheet.columns.GetValueFromSecondary(key);
-                    var textValue = "";
-                    foreach (var text in ListValue)
-                    {
-                        if (!text.value.Equals(key))
-                        {
-                            var textBuilder = ReplaceText(text.value);
-                            textValue += "\t\t\"" + textBuilder + "\",\n";
-                            if (countkey == 0)
-                            {
-                                stringValues.Add(textBuilder);
-                            }
-                        }
-                    }
-
-                    jsonString += textValue;
-                    jsonString += "\t]" + "\n}";
-                    File.WriteAllText(jsonPath, jsonString);
-
-                    countkey++;
-                }
-            }
-
-            //Export class
-            var classPath = $"{Application.dataPath}/{exportFolder}/Scripts/{sheetName}Container.cs";
-            var classContent = ClassContent(sheetName);
-            var ListKey = "";
-            var ListLanguage = "";
-
-            foreach (var key in sheet.columns.secondaryKeyLink.Keys)
-            {
-                if (!key.Contains("[") && !key.Contains("]"))
-                {
-                    if (key.Equals("key"))
-                    {
-                        var ListValue = sheet.columns.GetValueFromSecondary(key);
-                        foreach (var text in ListValue)
-                        {
-                            if (text != null && !text.value.Equals(key) && count < stringValues.Count)
-                            {
-                                ListKey += text.value + ",\t\t\t//" + stringValues[count] + "\n\t\t";
-                                process = count / (float) ListValue.Count;
-                                count++;
-                                EditorUtility.DisplayProgressBar("Reading From Google Sheet ", $"Sheet: {sheetName}/{text.value} - {count}/{ListValue.Count}", GetProcess());
-                            }
-                        }
-                    }
-                    else
-                    {
-                        ListLanguage += "case \"" + key + "\":\n\t\t\t\t";
-                        ListLanguage += "\tfileName = \"[" + key + "]" + sheetName + "\";\n\t\t\t\t";
-                        ListLanguage += "\tbreak;\n\n\t\t\t\t";
-                    }
-                }
-            }
-            
-            ListKey = ListKey.Substring(0,ListKey.LastIndexOf("\n", StringComparison.Ordinal));
-            ListLanguage = ListLanguage.Substring(0,ListLanguage.LastIndexOf("\n\n", StringComparison.Ordinal));
-            
-            classContent = classContent.Replace("<ListKey>", ListKey);
-            classContent = classContent.Replace("<ListLanguage>", ListLanguage);
-            File.WriteAllText(classPath, classContent);
-            complete?.Invoke();*/
         }
 
         private string ReplaceText(string textValue)
@@ -717,7 +655,7 @@ namespace GoogleSheetsToUnity.Editor
             text = text.Replace("< color =", "<color=");
             text = text.Replace("<Color =", "<color=");
             text = text.Replace("< Color =", "<color=");
-            text = text.Replace("</ color>", "</color>");
+            text = text.Replace("</ color>", "</color>"); 
             text = text.Replace("</ Color>", "</color>");
 
             text = text.Replace("<size =", "<size=");
@@ -739,8 +677,7 @@ namespace GoogleSheetsToUnity.Editor
 
         string ClassContent(string sheetName)
         {
-            var templateTextPath = $"{Application.dataPath}/3Q-GoogleSheetToUnity/Scripts/templateTextContainer.txt";
-            var content = File.ReadAllText(templateTextPath);
+            var content = _sheetSetting.textTemplate;
             content = content.Replace("<SheetName>", sheetName);
             return content;
         }
