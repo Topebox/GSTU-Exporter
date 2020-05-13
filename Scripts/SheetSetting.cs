@@ -50,7 +50,7 @@ public class SheetSetting : ScriptableObject
         "            }\n" +
         "            catch (Exception e)\n" +
         "            {\n" +
-        "                Debug.LogError($\"<qnt> <SheetName> can not load json file: {fileName} => err: {e}\");n" +
+        "                Debug.LogError($\"<qnt> <SheetName> can not load json file: {fileName} => err: {e}\");\n" +
         "            }\n" +
         "        }\n\n" +
         "        public static string GetText(<SheetName>Key key)\n" +
