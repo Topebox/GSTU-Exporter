@@ -14,16 +14,14 @@ public class SheetSetting : ScriptableObject
         "* * * * * */\n\n" +
         "using System;\n" +
         "using QNT.SimpleJSON;\n" +
-        "using UnityEngine;\n\n" +
+        "using UnityEngine;\n" +
         "namespace QNT.GSTU.Extension\n" +
         "{\n" +
         "    public enum <SheetName>Key\n" +
         "    {\n" +
         "        <ListKey>\n" +
         "    }\n\n" +
-        "    public static class <SheetName>Containe" +
-        "" +
-      
+        "    public static class <SheetName>Container\n" +      
         "    {\n" +
         "        private static string[] _listText;\n" +
         "        private static int _maxLength;\n\n" +
