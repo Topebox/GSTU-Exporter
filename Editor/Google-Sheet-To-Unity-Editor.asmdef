@@ -1,0 +1,16 @@
+{
+    "name": "Google-Sheet-To-Unity-Editor",
+    "references": [
+        "GTSU-Exporter"
+    ],
+    "optionalUnityReferences": [],
+    "includePlatforms": [],
+    "excludePlatforms": [
+        "Editor"
+    ],
+    "allowUnsafeCode": false,
+    "overrideReferences": false,
+    "precompiledReferences": [],
+    "autoReferenced": true,
+    "defineConstraints": []
+}
