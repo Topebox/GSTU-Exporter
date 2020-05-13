@@ -1,8 +1,12 @@
 {
-    "name": "GTSU-Exporter",
-    "references": [],
+    "name": "Google-Sheet-Localizations.util",
+    "references": [
+        "Google-Sheet-Localizations"
+    ],
     "optionalUnityReferences": [],
-    "includePlatforms": [],
+    "includePlatforms": [
+        "Editor"
+    ],
     "excludePlatforms": [],
     "allowUnsafeCode": false,
     "overrideReferences": false,

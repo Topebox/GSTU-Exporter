@@ -4,12 +4,17 @@ using System.IO;
 using System.Net;
 using System.Net.Security;
 using System.Security.Cryptography.X509Certificates;
-using QNT.Extension;
 using UnityEditor;
 using UnityEngine;
 
 namespace GoogleSheetsToUnity.Editor
 {
+    public struct BuildAction
+    {
+        public Delegate m_Action;
+        public object[] m_Params;
+    }
+
     public class GoogleSheetsToUnityEditorWindow : EditorWindow
     {
         private static readonly string exportFolder = "GSTU_Export";
@@ -21,7 +26,7 @@ namespace GoogleSheetsToUnity.Editor
 
         private GoogleSheetsToUnityConfig config;
         private SheetSetting _sheetSetting;
-        private QueueAction _queue;
+        private Queue<BuildAction> _queue;
         private bool showSecret = false;
         private Vector2 scrollPosition;
         private bool expandAll;
@@ -49,7 +54,7 @@ namespace GoogleSheetsToUnity.Editor
 
         public void Init()
         {
-            config = (GoogleSheetsToUnityConfig) Resources.Load(_gstuAPIsConfig);
+            config = (GoogleSheetsToUnityConfig)Resources.Load(_gstuAPIsConfig);
             var finds = AssetDatabase.FindAssets($"t:{_sheetSettingAsset}", null);
             foreach (var item in finds)
             {
@@ -59,7 +64,7 @@ namespace GoogleSheetsToUnity.Editor
 
             if (_queue == null)
             {
-                _queue = new QueueAction();
+                _queue = new Queue<BuildAction>();
             }
 
             isBuilding = false;
@@ -69,7 +74,25 @@ namespace GoogleSheetsToUnity.Editor
         {
             if (_queue == null)
             {
-                _queue = new QueueAction();
+                _queue = new Queue<BuildAction>();
+            }
+        }
+
+        public void AddQueue(Delegate method, object[] param)
+        {
+            if (_queue == null)
+            {
+                _queue = new Queue<BuildAction>();
+            }
+            _queue.Enqueue(new BuildAction { m_Action = method, m_Params = param });
+        }
+
+        public void Execute()
+        {
+            if (_queue != null && _queue.Count > 0)
+            {
+                var method = _queue.Dequeue();
+                method.m_Action.DynamicInvoke(method.m_Params);
             }
         }
 
@@ -114,8 +137,11 @@ namespace GoogleSheetsToUnity.Editor
                     //create export scripts folder
                     AssetDatabase.CreateFolder(_folderPath, "Scripts");
 
-                    //
+
                     _sheetSetting = CreateInstance<SheetSetting>();
+                    _sheetSetting.GoogleSheets = new List<SheetConfig> {
+                        new SheetConfig()
+                    };
                     AssetDatabase.CreateAsset(_sheetSetting, $"{_folderPath}/{_sheetSettingAsset}.asset");
 
                     config = CreateInstance<GoogleSheetsToUnityConfig>();
@@ -268,7 +294,7 @@ namespace GoogleSheetsToUnity.Editor
                 GUILayout.BeginHorizontal();
                 if (GUILayout.Button("Add sheet name", GUILayout.Width(150)))
                 {
-                    sheetConfig.sheetNames.Add(new SheetName {name = "", buildText = false});
+                    sheetConfig.sheetNames.Add(new SheetName { name = "", buildText = false });
                 }
 
                 GUI.backgroundColor = Color.red;
@@ -294,7 +320,7 @@ namespace GoogleSheetsToUnity.Editor
 
         void OnImportClicked()
         {
-            _queue = new QueueAction();
+            _queue = new Queue<BuildAction>();
             if (!AssetDatabase.IsValidFolder(_folderPath + "/Resources"))
             {
                 AssetDatabase.CreateFolder(_folderPath, "Resources");
@@ -326,11 +352,11 @@ namespace GoogleSheetsToUnity.Editor
                     var endCell = sheet.endCell;
                     var buildText = sheet.buildText;
 
-                    _queue.AddQueue(new Action<string, string, string, string, bool>(ExportSheet), new object[] {ggSheet.spreadSheetKey, sheetName, startCell, endCell, buildText});
+                    AddQueue(new Action<string, string, string, string, bool>(ExportSheet), new object[] { ggSheet.spreadSheetKey, sheetName, startCell, endCell, buildText });
                 }
             }
 
-            _queue.NextAction(10, true);
+            Execute();
         }
 
         private void ExportSheet(string sheetId, string sheetName, string startCell, string endCell, bool buildText)
@@ -365,7 +391,7 @@ namespace GoogleSheetsToUnity.Editor
         private void OnCompleteRead()
         {
             EditorUtility.ClearProgressBar();
-            _queue.Done(true);
+            Execute();
         }
 
         struct DataType
@@ -576,7 +602,7 @@ namespace GoogleSheetsToUnity.Editor
                 var textValue = "";
                 foreach (var key in listBuildKeys)
                 {
-                    if (i<key.Value.Count)
+                    if (i < key.Value.Count)
                     {
                         var textBuilder = ReplaceText(key.Value[i]);
                         textBuilder = GetStringFormatKey(textBuilder, listBuildKeys, i);
@@ -593,7 +619,7 @@ namespace GoogleSheetsToUnity.Editor
             foreach (var key in listBuildKeys)
             {
                 ListKey += key.Key + ",\t\t\t//" + key.Value[0] + "\n\t\t";
-                process = count / (float) listBuildKeys.Count;
+                process = count / (float)listBuildKeys.Count;
                 EditorUtility.DisplayProgressBar("Reading From Google Sheet ", $"Sheet: {sheetName}/{key.Key} - {count}/{listBuildKeys.Count}", GetProcess());
             }
 
