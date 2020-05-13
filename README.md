@@ -10,4 +10,6 @@
 "dependencies": {
     
     "com.quocnt.gstu-exporter": "https://github.com/quocnt-09/GSTU-Exporter.git",  
+    or
+    "com.quocnt.gstu-exporter": "https://github.com/quocnt-09/GSTU-Exporter.git#0.2.0",  
 }
