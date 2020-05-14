@@ -85,5 +85,6 @@ public class SheetName
     public string startCell = "A1";
     public string endCell = "Z100";
     public bool buildText;
+    public bool isUpper;
     public string name;
 }

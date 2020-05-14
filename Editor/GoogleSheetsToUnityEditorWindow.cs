@@ -36,6 +36,7 @@ namespace GoogleSheetsToUnity.Editor
         private bool isBuilding;
         private static string _output;
         private bool showTextTemplate;
+        private bool isUpperText;
         private const string StarCheckKey = "<key=";
         private const string EndCheckKey = "/>";
 
@@ -55,7 +56,7 @@ namespace GoogleSheetsToUnity.Editor
 
         public void Init()
         {
-            config = (GoogleSheetsToUnityConfig)Resources.Load(_gstuAPIsConfig);
+            config = (GoogleSheetsToUnityConfig) Resources.Load(_gstuAPIsConfig);
             var finds = AssetDatabase.FindAssets($"t:{_sheetSettingAsset}", null);
             foreach (var item in finds)
             {
@@ -85,7 +86,8 @@ namespace GoogleSheetsToUnity.Editor
             {
                 _queue = new Queue<BuildAction>();
             }
-            _queue.Enqueue(new BuildAction { m_Action = method, m_Params = param });
+
+            _queue.Enqueue(new BuildAction {m_Action = method, m_Params = param});
         }
 
         public void Execute()
@@ -139,9 +141,7 @@ namespace GoogleSheetsToUnity.Editor
                     AssetDatabase.CreateFolder(_folderPath, "Scripts");
 
                     _sheetSetting = CreateInstance<SheetSetting>();
-                    _sheetSetting.GoogleSheets = new List<SheetConfig> {
-                        new SheetConfig()
-                    };
+                    _sheetSetting.GoogleSheets = new List<SheetConfig> {new SheetConfig()};
                     AssetDatabase.CreateAsset(_sheetSetting, $"{_folderPath}/{_sheetSettingAsset}.asset");
 
                     config = CreateInstance<GoogleSheetsToUnityConfig>();
@@ -150,7 +150,7 @@ namespace GoogleSheetsToUnity.Editor
 
                 AssetDatabase.SaveAssets();
             }
-            else if(!showTextTemplate)
+            else if (!showTextTemplate)
             {
                 scrollPosition = GUILayout.BeginScrollView(scrollPosition);
                 GUILayout.Label("");
@@ -283,11 +283,14 @@ namespace GoogleSheetsToUnity.Editor
                     GUILayout.Label("Build text:", GUILayout.Width(60));
                     sheetConfig.sheetNames[i].buildText = GUILayout.Toggle(sheetConfig.sheetNames[i].buildText, "", GUILayout.Width(20));
 
+                    GUILayout.Label("Upper text:", GUILayout.Width(60));
+                    sheetConfig.sheetNames[i].isUpper = GUILayout.Toggle(sheetConfig.sheetNames[i].isUpper, "", GUILayout.Width(20));
+
                     GUI.backgroundColor = Color.green;
                     if (GUILayout.Button("Build", EditorStyles.miniButton, GUILayout.Width(50)))
                     {
                         ExportSheet(sheetConfig.spreadSheetKey, sheetConfig.sheetNames[i].name, sheetConfig.sheetNames[i].startCell, sheetConfig.sheetNames[i].endCell,
-                            sheetConfig.sheetNames[i].buildText);
+                            sheetConfig.sheetNames[i].buildText, sheetConfig.sheetNames[i].isUpper);
                     }
 
                     GUI.backgroundColor = Color.red;
@@ -309,7 +312,7 @@ namespace GoogleSheetsToUnity.Editor
                 GUILayout.BeginHorizontal();
                 if (GUILayout.Button("Add sheet name", GUILayout.Width(150)))
                 {
-                    sheetConfig.sheetNames.Add(new SheetName { name = "", buildText = false });
+                    sheetConfig.sheetNames.Add(new SheetName {name = "", buildText = false});
                 }
 
                 GUI.backgroundColor = Color.red;
@@ -366,18 +369,20 @@ namespace GoogleSheetsToUnity.Editor
                     var startCell = sheet.startCell;
                     var endCell = sheet.endCell;
                     var buildText = sheet.buildText;
+                    var isUpper = sheet.isUpper;
 
-                    AddQueue(new Action<string, string, string, string, bool>(ExportSheet), new object[] { ggSheet.spreadSheetKey, sheetName, startCell, endCell, buildText });
+                    AddQueue(new Action<string, string, string, string, bool, bool>(ExportSheet), new object[] {ggSheet.spreadSheetKey, sheetName, startCell, endCell, buildText, isUpper});
                 }
             }
 
             Execute();
         }
 
-        private void ExportSheet(string sheetId, string sheetName, string startCell, string endCell, bool buildText)
+        private void ExportSheet(string sheetId, string sheetName, string startCell, string endCell, bool buildText, bool isUpper)
         {
             isBuilding = true;
             isBuildText = buildText;
+            isUpperText = isUpper;
             Debug.Log($"sheetName: {sheetName}");
             EditorUtility.DisplayProgressBar("Reading From Google Sheet ", $"Sheet: {sheetName}", GetProcess());
             var gstuSearch = new GSTU_Search(sheetId, sheetName, startCell, endCell);
@@ -394,7 +399,7 @@ namespace GoogleSheetsToUnity.Editor
                 Debug.Log($"Total Row Count: {sheet.rows.primaryDictionary.Count}");
                 if (isBuildText)
                 {
-                    BuildText(sheet, OnCompleteRead);
+                    BuildText(sheet, isUpperText, OnCompleteRead);
                 }
                 else
                 {
@@ -549,7 +554,7 @@ namespace GoogleSheetsToUnity.Editor
             complete?.Invoke();
         }
 
-        private void BuildText(GstuSpreadSheet sheet, Action complete)
+        private void BuildText(GstuSpreadSheet sheet, bool isUpper, Action complete)
         {
             var sheetName = sheet.sheetName;
             var listKeys = new List<string>();
@@ -590,7 +595,7 @@ namespace GoogleSheetsToUnity.Editor
                         {
                             if (!text.value.Equals(key))
                             {
-                                var value = text.value;
+                                var value = TrimFormatRickText(text.value);
                                 var keyData = listKeys[countKey];
                                 countKey++;
                                 if (listBuildKeys.TryGetValue(keyData, out var listValues))
@@ -607,6 +612,11 @@ namespace GoogleSheetsToUnity.Editor
             var classPath = $"{Application.dataPath}/{exportFolder}/Scripts/{sheetName}Container.cs";
             var classContent = ClassContent(sheetName);
 
+            if (AssetDatabase.IsValidFolder($"{_folderPath}/Resources"))
+            {
+                AssetDatabase.CreateFolder($"{_folderPath}/Resources", "LocalizedText");
+            }
+
             for (var i = 0; i < dataTypes.Count; i++)
             {
                 var dataType = dataTypes[i];
@@ -619,8 +629,13 @@ namespace GoogleSheetsToUnity.Editor
                 {
                     if (i < key.Value.Count)
                     {
-                        var textBuilder = ReplaceText(key.Value[i]);
-                        textBuilder = GetStringFormatKey(textBuilder, listBuildKeys, i);
+                        var textBuilder = GetStringFormatKey(key.Value[i], listBuildKeys, i);
+                        if (isUpper)
+                        {
+                            textBuilder = textBuilder.ToUpper();
+                        }
+
+                        textBuilder = ReplaceText(textBuilder, isUpper);
                         textValue += "\t\t\"" + textBuilder + "\",\n";
                     }
                 }
@@ -634,7 +649,7 @@ namespace GoogleSheetsToUnity.Editor
             foreach (var key in listBuildKeys)
             {
                 ListKey += key.Key + ",\t\t\t//" + key.Value[0] + "\n\t\t";
-                process = count / (float)listBuildKeys.Count;
+                process = count / (float) listBuildKeys.Count;
                 EditorUtility.DisplayProgressBar("Reading From Google Sheet ", $"Sheet: {sheetName}/{key.Key} - {count}/{listBuildKeys.Count}", GetProcess());
             }
 
@@ -647,31 +662,65 @@ namespace GoogleSheetsToUnity.Editor
             complete?.Invoke();
         }
 
-        private string ReplaceText(string textValue)
+        private string ReplaceText(string textValue, bool isUpper)
         {
             var text = textValue;
+            if (isUpper)
+            {
+                text = text.Replace("<COLOR=", "<color=");
+                text = text.Replace("< COLOR=", "<color=");
+                text = text.Replace("<COLOR =", "<color=");
+                text = text.Replace("< COLOR =", "<color=");
+                text = text.Replace("</COLOR>", "</color>");
+                text = text.Replace("< /COLOR>", "</color>");
+                text = text.Replace("</ COLOR>", "</color>");
+                text = text.Replace("</COLOR >", "</color>");
+                text = text.Replace("< /COLOR >", "</color>");
+                text = text.Replace("</ COLOR >", "</color>");
 
-            text = text.Replace("<color =", "<color=");
-            text = text.Replace("< color =", "<color=");
-            text = text.Replace("<Color =", "<color=");
-            text = text.Replace("< Color =", "<color=");
-            text = text.Replace("</ color>", "</color>"); 
-            text = text.Replace("</ Color>", "</color>");
+                text = text.Replace("<SIZE=", "<size=");
+                text = text.Replace("< SIZE=", "<size=");
+                text = text.Replace("<SIZE =", "<size=");
+                text = text.Replace("< SIZE =", "<size=");
+                text = text.Replace("</SIZE>", "</size>");
+                text = text.Replace("< /SIZE>", "</size>");
+                text = text.Replace("</ SIZE>", "</size>");
+                text = text.Replace("</SIZE >", "</size>");
+                text = text.Replace("< /SIZE >", "</size>");
+                text = text.Replace("</ SIZE >", "</size>");
 
-            text = text.Replace("<size =", "<size=");
-            text = text.Replace("< size =", "<size=");
-            text = text.Replace("<Size =", "<size=");
-            text = text.Replace("< Size =", "<size=");
-            text = text.Replace("</ size>", "</size>");
-            text = text.Replace("</ Size>", "</size>");
+                text = text.Replace("<KEY=", "<key=");
+                text = text.Replace("<KEY =", "<key=");
+                text = text.Replace("< KEY =", "<key=");
 
-            text = text.Replace("<key =", "<key=");
-            text = text.Replace("<Key =", "<key=");
-            text = text.Replace("< key =", "<key=");
-            text = text.Replace("< Key =", "<key=");
+                text = text.Replace("\\ N", "\\n");
+                text = text.Replace("\\N", "\\n");
+            }
+            else
+            {
+                text = text.Replace("<color =", "<color=");
+                text = text.Replace("< color =", "<color=");
+                text = text.Replace("<Color =", "<color=");
+                text = text.Replace("< Color =", "<color=");
+                text = text.Replace("</ color>", "</color>");
+                text = text.Replace("</ Color>", "</color>");
 
-            text = text.Replace("\\ N", "\\n");
-            text = text.Replace("\\ n", "\\n");
+                text = text.Replace("<size =", "<size=");
+                text = text.Replace("< size =", "<size=");
+                text = text.Replace("<Size =", "<size=");
+                text = text.Replace("< Size =", "<size=");
+                text = text.Replace("</ size>", "</size>");
+                text = text.Replace("</ Size>", "</size>");
+
+                text = text.Replace("<key =", "<key=");
+                text = text.Replace("<Key =", "<key=");
+                text = text.Replace("< key =", "<key=");
+                text = text.Replace("< Key =", "<key=");
+
+                text = text.Replace("\\ N", "\\n");
+                text = text.Replace("\\ n", "\\n");
+            }
+
             return text;
         }
 
@@ -682,7 +731,7 @@ namespace GoogleSheetsToUnity.Editor
             return content;
         }
 
-        public static string GetStringFormatKey(string input, Dictionary<string, List<string>> dictionary, int index)
+        private static string GetStringFormatKey(string input, Dictionary<string, List<string>> dictionary, int index)
         {
             _output = input;
             if (_output.Contains(StarCheckKey) && _output.Contains(EndCheckKey))
@@ -701,6 +750,38 @@ namespace GoogleSheetsToUnity.Editor
                     }
 
                     _output = start + GetText(dictionary, key, index) + final;
+                }
+                catch (Exception e)
+                {
+                    Debug.LogError($"<qnt> GetStringFormatKey: {e}");
+                }
+            }
+
+            return _output;
+        }
+
+        private static string TrimFormatRickText(string input)
+        {
+            _output = input;
+            var starCheckKey = "<";
+            var endCheckKey = ">";
+            if (_output.Contains(starCheckKey) && _output.Contains(endCheckKey))
+            {
+                try
+                {
+                    _output = "";
+                    var start = input.Substring(0, input.IndexOf(starCheckKey, StringComparison.Ordinal) + starCheckKey.Length);
+                    var end = input.Substring(input.IndexOf(starCheckKey, StringComparison.Ordinal) + starCheckKey.Length);
+                    var content = end.Substring(0, end.IndexOf(endCheckKey, StringComparison.Ordinal)).Trim();
+                    content = content.Replace(" ", "");
+
+                    var final = end.Substring(end.IndexOf(endCheckKey, StringComparison.Ordinal));
+                    if (final.Contains(starCheckKey) && final.Contains(endCheckKey))
+                    {
+                        final = TrimFormatRickText(final);
+                    }
+
+                    _output = start + content + final;
                 }
                 catch (Exception e)
                 {
