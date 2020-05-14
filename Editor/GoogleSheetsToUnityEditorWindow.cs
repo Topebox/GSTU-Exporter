@@ -614,7 +614,10 @@ namespace GoogleSheetsToUnity.Editor
 
             if (AssetDatabase.IsValidFolder($"{_folderPath}/Resources"))
             {
-                AssetDatabase.CreateFolder($"{_folderPath}/Resources", "LocalizedText");
+                if (!AssetDatabase.IsValidFolder($"{_folderPath}/Resources/LocalizedText"))
+                {
+                    AssetDatabase.CreateFolder($"{_folderPath}/Resources", "LocalizedText");      
+                }
             }
 
             for (var i = 0; i < dataTypes.Count; i++)
