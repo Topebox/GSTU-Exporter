@@ -637,7 +637,8 @@ namespace GoogleSheetsToUnity.Editor
                         {
                             textBuilder = textBuilder.ToUpper();
                         }
-
+                        textBuilder = TrimFormatRickText(textBuilder);
+                        
                         textBuilder = ReplaceText(textBuilder, isUpper);
                         textValue += "\t\t\"" + textBuilder + "\",\n";
                     }
@@ -776,7 +777,7 @@ namespace GoogleSheetsToUnity.Editor
                     var start = input.Substring(0, input.IndexOf(starCheckKey, StringComparison.Ordinal) + starCheckKey.Length);
                     var end = input.Substring(input.IndexOf(starCheckKey, StringComparison.Ordinal) + starCheckKey.Length);
                     var content = end.Substring(0, end.IndexOf(endCheckKey, StringComparison.Ordinal)).Trim();
-                    content = content.Replace(" ", "");
+                    content = content.Replace(" ", "").ToLower();
 
                     var final = end.Substring(end.IndexOf(endCheckKey, StringComparison.Ordinal));
                     if (final.Contains(starCheckKey) && final.Contains(endCheckKey))
