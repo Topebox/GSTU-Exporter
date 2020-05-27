@@ -280,10 +280,10 @@ namespace GoogleSheetsToUnity.Editor
                     GUILayout.Label("End Cell:", GUILayout.Width(65));
                     sheetConfig.sheetNames[i].endCell = EditorGUILayout.TextField(sheetConfig.sheetNames[i].endCell, GUILayout.Width(70));
 
-                    GUILayout.Label("Build text:", GUILayout.Width(60));
+                    GUILayout.Label("Text:", GUILayout.Width(30));
                     sheetConfig.sheetNames[i].buildText = GUILayout.Toggle(sheetConfig.sheetNames[i].buildText, "", GUILayout.Width(20));
 
-                    GUILayout.Label("Upper text:", GUILayout.Width(60));
+                    GUILayout.Label("Upper:", GUILayout.Width(40));
                     sheetConfig.sheetNames[i].isUpper = GUILayout.Toggle(sheetConfig.sheetNames[i].isUpper, "", GUILayout.Width(20));
 
                     GUI.backgroundColor = Color.green;
@@ -556,6 +556,7 @@ namespace GoogleSheetsToUnity.Editor
 
         private void BuildText(GstuSpreadSheet sheet, bool isUpper, Action complete)
         {
+            process = 0;
             var sheetName = sheet.sheetName;
             var listKeys = new List<string>();
             var listBuildKeys = new Dictionary<string, List<string>>();
@@ -596,6 +597,7 @@ namespace GoogleSheetsToUnity.Editor
                             if (!text.value.Equals(key))
                             {
                                 var value = TrimFormatRickText(text.value);
+                                value = value.Replace("\"","\\\"");
                                 var keyData = listKeys[countKey];
                                 countKey++;
                                 if (listBuildKeys.TryGetValue(keyData, out var listValues))
@@ -637,8 +639,6 @@ namespace GoogleSheetsToUnity.Editor
                         {
                             textBuilder = textBuilder.ToUpper();
                         }
-                        textBuilder = TrimFormatRickText(textBuilder);
-                        
                         textBuilder = ReplaceText(textBuilder, isUpper);
                         textValue += "\t\t\"" + textBuilder + "\",\n";
                     }
@@ -655,6 +655,7 @@ namespace GoogleSheetsToUnity.Editor
                 ListKey += key.Key + ",\t\t\t//" + key.Value[0] + "\n\t\t";
                 process = count / (float) listBuildKeys.Count;
                 EditorUtility.DisplayProgressBar("Reading From Google Sheet ", $"Sheet: {sheetName}/{key.Key} - {count}/{listBuildKeys.Count}", GetProcess());
+                count++;
             }
 
             ListKey = ListKey.Substring(0, ListKey.LastIndexOf("\n", StringComparison.Ordinal));
@@ -777,8 +778,7 @@ namespace GoogleSheetsToUnity.Editor
                     var start = input.Substring(0, input.IndexOf(starCheckKey, StringComparison.Ordinal) + starCheckKey.Length);
                     var end = input.Substring(input.IndexOf(starCheckKey, StringComparison.Ordinal) + starCheckKey.Length);
                     var content = end.Substring(0, end.IndexOf(endCheckKey, StringComparison.Ordinal)).Trim();
-                    content = content.Replace(" ", "").ToLower();
-
+                    content = content.Replace(" ", "");
                     var final = end.Substring(end.IndexOf(endCheckKey, StringComparison.Ordinal));
                     if (final.Contains(starCheckKey) && final.Contains(endCheckKey))
                     {
