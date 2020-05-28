@@ -37,6 +37,8 @@ namespace GoogleSheetsToUnity.Editor
         private static string _output;
         private bool showTextTemplate;
         private bool isUpperText;
+        private static string startHyperLink = "<color=#00ff00><i><u>";
+        private static string endHyperLink = "</u></i></color>";
         private const string StarCheckKey = "<key=";
         private const string EndCheckKey = "/>";
 
@@ -242,8 +244,9 @@ namespace GoogleSheetsToUnity.Editor
             style.fontStyle = FontStyle.Bold;
             style.fontSize = 15;
             showTextTemplate = GUILayout.Toggle(showTextTemplate, "Build Text Template");
-
             GUI.backgroundColor = Color.white;
+            startHyperLink = EditorGUILayout.TextField("Input start hyper link", startHyperLink);
+            endHyperLink = EditorGUILayout.TextField("Input end hyper link", endHyperLink);
 
             EditorUtility.SetDirty(config);
         }
@@ -597,7 +600,7 @@ namespace GoogleSheetsToUnity.Editor
                             if (!text.value.Equals(key))
                             {
                                 var value = TrimFormatRickText(text.value);
-                                value = value.Replace("\"","\\\"");
+                                value = value.Replace("\"", "\\\"");
                                 var keyData = listKeys[countKey];
                                 countKey++;
                                 if (listBuildKeys.TryGetValue(keyData, out var listValues))
@@ -618,7 +621,7 @@ namespace GoogleSheetsToUnity.Editor
             {
                 if (!AssetDatabase.IsValidFolder($"{_folderPath}/Resources/LocalizedText"))
                 {
-                    AssetDatabase.CreateFolder($"{_folderPath}/Resources", "LocalizedText");      
+                    AssetDatabase.CreateFolder($"{_folderPath}/Resources", "LocalizedText");
                 }
             }
 
@@ -635,10 +638,13 @@ namespace GoogleSheetsToUnity.Editor
                     if (i < key.Value.Count)
                     {
                         var textBuilder = GetStringFormatKey(key.Value[i], listBuildKeys, i);
+                        textBuilder = CheckHyperLink(textBuilder);
+
                         if (isUpper)
                         {
-                            textBuilder = textBuilder.ToUpper();
+                            textBuilder = UpperText(textBuilder);
                         }
+
                         textBuilder = ReplaceText(textBuilder, isUpper);
                         textValue += "\t\t\"" + textBuilder + "\",\n";
                     }
@@ -779,6 +785,8 @@ namespace GoogleSheetsToUnity.Editor
                     var end = input.Substring(input.IndexOf(starCheckKey, StringComparison.Ordinal) + starCheckKey.Length);
                     var content = end.Substring(0, end.IndexOf(endCheckKey, StringComparison.Ordinal)).Trim();
                     content = content.Replace(" ", "");
+
+                    //check final
                     var final = end.Substring(end.IndexOf(endCheckKey, StringComparison.Ordinal));
                     if (final.Contains(starCheckKey) && final.Contains(endCheckKey))
                     {
@@ -789,8 +797,79 @@ namespace GoogleSheetsToUnity.Editor
                 }
                 catch (Exception e)
                 {
-                    Debug.LogError($"<qnt> GetStringFormatKey: {e}");
+                    Debug.LogError($"<qnt> TrimFormatRickText: {e}");
                 }
+            }
+
+            return _output;
+        }
+
+        private static string CheckHyperLink(string input)
+        {
+            _output = input;
+            var starCheckKey = "<link";
+            var endCheckKey = "</link>";
+            if (_output.Contains(starCheckKey) && _output.Contains(endCheckKey))
+            {
+                try
+                {
+                    _output = "";
+                    var start = input.Substring(0, input.IndexOf(starCheckKey, StringComparison.Ordinal));
+                    var end = input.Substring(input.IndexOf(starCheckKey, StringComparison.Ordinal) + starCheckKey.Length);
+                    var content = end.Substring(0, end.IndexOf(endCheckKey, StringComparison.Ordinal)).Trim();
+
+                    //check final
+                    var final = end.Substring(end.IndexOf(endCheckKey, StringComparison.Ordinal) + endCheckKey.Length);
+                    if (final.Contains(starCheckKey) && final.Contains(endCheckKey))
+                    {
+                        final = CheckHyperLink(final);
+                    }
+
+                    _output = $"{start}{startHyperLink}{starCheckKey}{content}{final}{endCheckKey}{endHyperLink}";
+                }
+                catch (Exception e)
+                {
+                    Debug.LogError($"<qnt> CheckHyperLink: {e}");
+                }
+            }
+
+            return _output;
+        }
+
+        private static string UpperText(string input)
+        {
+            _output = input;
+            var starCheckKey = "<";
+            var endCheckKey = ">";
+            if (_output.Contains(starCheckKey) && _output.Contains(endCheckKey))
+            {
+                try
+                {
+                    _output = "";
+                    var start = input.Substring(0, input.IndexOf(starCheckKey, StringComparison.Ordinal) + starCheckKey.Length);
+                    var end = input.Substring(input.IndexOf(starCheckKey, StringComparison.Ordinal) + starCheckKey.Length);
+                    var content = end.Substring(0, end.IndexOf(endCheckKey, StringComparison.Ordinal)).Trim();
+
+                    var final = end.Substring(end.IndexOf(endCheckKey, StringComparison.Ordinal));
+                    if (final.Contains(starCheckKey) && final.Contains(endCheckKey))
+                    {
+                        final = UpperText(final);
+                    }
+                    else
+                    {
+                        final = final.ToUpper();
+                    }
+
+                    _output = start.ToUpper() + content + final;
+                }
+                catch (Exception e)
+                {
+                    Debug.LogError($"<qnt> UpperText: {e}");
+                }
+            }
+            else
+            {
+                _output = input.ToUpper();
             }
 
             return _output;
