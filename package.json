@@ -1,6 +1,6 @@
 {
 	"name": "com.quocnt.gstu-exporter",
-	"version": "0.4.0",
+	"version": "1.0.0",
 	"displayName": "QNT-GSTU-Exporter",
 	"unity": "2018.4",
 	"description": "Extensions For Unity Framework",
@@ -14,5 +14,7 @@
 		"name": "Quocnt",
 		"email": "ntq.quoc@gmail.com"
 	},
-	"dependencies": {}
+	"dependencies": {
+		"com.unity.nuget.newtonsoft-json": "2.0.0"
+	}
 }
